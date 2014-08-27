@@ -1521,6 +1521,24 @@ libusb_device * LIBUSB_CALL libusb_get_device(libusb_device_handle *dev_handle)
 }
 
 /** \ingroup libusb_dev
+ * Get the underlying device for a \a dev_node.
+ * UseCase: Android
+ * \param \a dev_node device path
+ * \returns allocate a device from \a dev_node
+ */
+DEFAULT_VISIBILITY
+libusb_device * LIBUSB_CALL libusb_get_device2(libusb_context *ctx,
+		const char *dev_node)
+{
+	if(usbi_backend->device2 == NULL) {
+		/* Not supported on this platform */
+		return NULL;
+	}
+
+	return usbi_backend->device2(ctx, dev_node);
+}
+
+/** \ingroup libusb_dev
  * Determine the bConfigurationValue of the currently active configuration.
  *
  * You could formulate your own control request to obtain this information,

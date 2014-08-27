@@ -1347,6 +1347,32 @@ static int op_open2(struct libusb_device_handle *handle, int fd) {
 	return usbi_add_pollfd(HANDLE_CTX(handle), hpriv->fd, POLLOUT);
 }
 
+static libusb_device* op_device2(struct libusb_context *ctx,
+		const char *dev_node) {
+	uint8_t busnum, devaddr;
+	unsigned int session_id;
+
+	/* make sure device is addressed */
+	if (linux_get_device_address(ctx, 0, &busnum, &devaddr,
+		dev_node, NULL) != LIBUSB_SUCCESS) {
+		usbi_dbg("failed to get device address (%s)", dev_node);
+		return NULL;
+	}
+
+	/* make sure device is enumerated */
+	if (linux_enumerate_device(ctx, busnum, devaddr, NULL) < 0) {
+		usbi_dbg("failed to enumerate (%s)", dev_node);
+		return NULL;
+	}
+
+	/* retrive the device */
+	session_id = busnum << 8 | devaddr;
+	usbi_dbg("busnum %d devaddr %d session_id %ld", busnum, devaddr,
+		session_id);
+
+	return usbi_get_device_by_session_id(ctx, session_id);
+}
+
 static void op_close(struct libusb_device_handle *dev_handle)
 {
 	struct linux_device_handle_priv *hpriv = _device_handle_priv(dev_handle);
@@ -2723,6 +2749,7 @@ const struct usbi_os_backend linux_usbfs_backend = {
 
 	.open = op_open,
 	.open2 = op_open2,
+	.device2 = op_device2,
 	.close = op_close,
 	.get_configuration = op_get_configuration,
 	.set_configuration = op_set_configuration,
