@@ -2,6 +2,7 @@
 /*
  * Linux usbfs backend for libusb
  * Copyright © 2016 Stephan Linz <linz@li-pro.net>
+ * Copyright © 2015 Kuldeep Singh Dhaka <kuldeepdhaka9@gmail.com>
  * Copyright © 2013-2016 Martin Marinov <martintzvetomirov@gmail.com>
  * Copyright © 2013 Nathan Hjelm <hjelmn@mac.com>
  * Copyright © 2012-2013 Hans de Goede <hdegoede@redhat.com>
@@ -382,8 +383,14 @@ static int op_init(struct libusb_context *ctx)
 
 	usbfs_path = find_usbfs_path();
 	if (!usbfs_path) {
+		/* On Android Lollipop (Android 5), their is restriction due to SELinux.
+		 * due to which, all filesystem related query ends up in failure. */
+#if defined(__ANDROID__)
+		usbi_warn(ctx, "could not find usbfs. Android 5+?");
+#else
 		usbi_err(ctx, "could not find usbfs");
 		return LIBUSB_ERROR_OTHER;
+#endif
 	}
 
 	if (monotonic_clkid == -1)
@@ -449,8 +456,14 @@ static int op_init(struct libusb_context *ctx)
 	usbi_mutex_static_lock(&linux_hotplug_startstop_lock);
 	r = LIBUSB_SUCCESS;
 	if (init_count == 0) {
+#if defined(__ANDROID__)
+		if(linux_start_event_monitor() !=  LIBUSB_SUCCESS) {
+			usbi_warn(ctx, "unable to starting hotplug event monitor. Android 5+?");
+		}
+#else
 		/* start up hotplug event handler */
 		r = linux_start_event_monitor();
+#endif
 	}
 	if (r == LIBUSB_SUCCESS) {
 		r = linux_scan_devices(ctx);
@@ -458,8 +471,9 @@ static int op_init(struct libusb_context *ctx)
 			init_count++;
 		else if (init_count == 0)
 			linux_stop_event_monitor();
-	} else
+	} else {
 		usbi_err(ctx, "error starting hotplug event monitor");
+	}
 	usbi_mutex_static_unlock(&linux_hotplug_startstop_lock);
 
 	return r;
