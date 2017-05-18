@@ -1,7 +1,5 @@
 /*
  * Internal header for libusb
- * Copyright © 2016 Stephan Linz <linz@li-pro.net>
- * Copyright © 2013-2016 Martin Marinov <martintzvetomirov@gmail.com>
  * Copyright © 2007-2009 Daniel Drake <dsd@gentoo.org>
  * Copyright © 2001 Johannes Erdfelt <johannes@erdfelt.com>
  *
@@ -713,10 +711,6 @@ struct usbi_os_backend {
 	 * do this for you.
 	 */
 	int (*open)(struct libusb_device_handle *dev_handle);
-
-	int (*open2)(struct libusb_device_handle *dev_handle, int fd);
-	struct libusb_device* (*device2)(struct libusb_context *ctx,
-		const char *dev_node);
 
 	/* Close a device such that the handle cannot be used again. Your backend
 	 * should destroy any resources that were allocated in the open path.

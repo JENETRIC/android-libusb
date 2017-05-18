@@ -1,13 +1,10 @@
 /* -*- Mode: C; c-basic-offset:8 ; indent-tabs-mode:t -*- */
 /*
  * Linux usbfs backend for libusb
- * Copyright © 2016 Stephan Linz <linz@li-pro.net>
- * Copyright © 2015 Kuldeep Singh Dhaka <kuldeepdhaka9@gmail.com>
- * Copyright © 2013-2016 Martin Marinov <martintzvetomirov@gmail.com>
- * Copyright © 2013 Nathan Hjelm <hjelmn@mac.com>
- * Copyright © 2012-2013 Hans de Goede <hdegoede@redhat.com>
  * Copyright © 2007-2009 Daniel Drake <dsd@gentoo.org>
  * Copyright © 2001 Johannes Erdfelt <johannes@erdfelt.com>
+ * Copyright © 2013 Nathan Hjelm <hjelmn@mac.com>
+ * Copyright © 2012-2013 Hans de Goede <hdegoede@redhat.com>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -383,14 +380,8 @@ static int op_init(struct libusb_context *ctx)
 
 	usbfs_path = find_usbfs_path();
 	if (!usbfs_path) {
-		/* On Android Lollipop (Android 5), their is restriction due to SELinux.
-		 * due to which, all filesystem related query ends up in failure. */
-#if defined(__ANDROID__)
-		usbi_warn(ctx, "could not find usbfs. Android 5+?");
-#else
 		usbi_err(ctx, "could not find usbfs");
 		return LIBUSB_ERROR_OTHER;
-#endif
 	}
 
 	if (monotonic_clkid == -1)
@@ -456,14 +447,8 @@ static int op_init(struct libusb_context *ctx)
 	usbi_mutex_static_lock(&linux_hotplug_startstop_lock);
 	r = LIBUSB_SUCCESS;
 	if (init_count == 0) {
-#if defined(__ANDROID__)
-		if(linux_start_event_monitor() !=  LIBUSB_SUCCESS) {
-			usbi_warn(ctx, "unable to starting hotplug event monitor. Android 5+?");
-		}
-#else
 		/* start up hotplug event handler */
 		r = linux_start_event_monitor();
-#endif
 	}
 	if (r == LIBUSB_SUCCESS) {
 		r = linux_scan_devices(ctx);
@@ -471,9 +456,8 @@ static int op_init(struct libusb_context *ctx)
 			init_count++;
 		else if (init_count == 0)
 			linux_stop_event_monitor();
-	} else {
+	} else
 		usbi_err(ctx, "error starting hotplug event monitor");
-	}
 	usbi_mutex_static_unlock(&linux_hotplug_startstop_lock);
 
 	return r;
@@ -1335,56 +1319,6 @@ static int op_open(struct libusb_device_handle *handle)
 		close(hpriv->fd);
 
 	return r;
-}
-
-static int op_open2(struct libusb_device_handle *handle, int fd) {
-	struct linux_device_handle_priv *hpriv = _device_handle_priv(handle);
-	int r;
-
-	/* already open by upper layers */
-	hpriv->fd = fd;
-
-	r = ioctl(hpriv->fd, IOCTL_USBFS_GET_CAPABILITIES, &hpriv->caps);
-	if (r < 0) {
-		if (errno == ENOTTY)
-			usbi_dbg("getcap not available");
-		else
-			usbi_err(HANDLE_CTX(handle), "getcap failed (%d)", errno);
-		hpriv->caps = 0;
-		if (supports_flag_zero_packet)
-			hpriv->caps |= USBFS_CAP_ZERO_PACKET;
-		if (supports_flag_bulk_continuation)
-			hpriv->caps |= USBFS_CAP_BULK_CONTINUATION;
-	}
-
-	/* upper layer have to close on error */
-	return usbi_add_pollfd(HANDLE_CTX(handle), hpriv->fd, POLLOUT);
-}
-
-static libusb_device* op_device2(struct libusb_context *ctx,
-		const char *dev_node) {
-	uint8_t busnum, devaddr;
-	unsigned int session_id;
-
-	/* make sure device is addressed */
-	if (linux_get_device_address(ctx, 0, &busnum, &devaddr,
-		dev_node, NULL) != LIBUSB_SUCCESS) {
-		usbi_dbg("failed to get device address (%s)", dev_node);
-		return NULL;
-	}
-
-	/* make sure device is enumerated */
-	if (linux_enumerate_device(ctx, busnum, devaddr, NULL) < 0) {
-		usbi_dbg("failed to enumerate (%s)", dev_node);
-		return NULL;
-	}
-
-	/* retrive the device */
-	session_id = busnum << 8 | devaddr;
-	usbi_dbg("busnum %d devaddr %d session_id %ld", busnum, devaddr,
-		session_id);
-
-	return usbi_get_device_by_session_id(ctx, session_id);
 }
 
 static void op_close(struct libusb_device_handle *dev_handle)
@@ -2762,8 +2696,6 @@ const struct usbi_os_backend linux_usbfs_backend = {
 	.get_config_descriptor_by_value = op_get_config_descriptor_by_value,
 
 	.open = op_open,
-	.open2 = op_open2,
-	.device2 = op_device2,
 	.close = op_close,
 	.get_configuration = op_get_configuration,
 	.set_configuration = op_set_configuration,

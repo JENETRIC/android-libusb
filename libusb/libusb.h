@@ -1,7 +1,5 @@
 /*
  * Public libusb header file
- * Copyright © 2016 Stephan Linz <linz@li-pro.net>
- * Copyright © 2013-2016 Martin Marinov <martintzvetomirov@gmail.com>
  * Copyright © 2001 Johannes Erdfelt <johannes@erdfelt.com>
  * Copyright © 2007-2008 Daniel Drake <dsd@gentoo.org>
  * Copyright © 2012 Pete Batard <pete@akeo.ie>
@@ -1373,12 +1371,8 @@ int LIBUSB_CALL libusb_get_max_iso_packet_size(libusb_device *dev,
 	unsigned char endpoint);
 
 int LIBUSB_CALL libusb_open(libusb_device *dev, libusb_device_handle **dev_handle);
-int LIBUSB_CALL libusb_open2(libusb_device *dev, libusb_device_handle **dev_handle,
-	int fd);
 void LIBUSB_CALL libusb_close(libusb_device_handle *dev_handle);
 libusb_device * LIBUSB_CALL libusb_get_device(libusb_device_handle *dev_handle);
-libusb_device * LIBUSB_CALL libusb_get_device2(libusb_context *ctx,
-	const char *dev_node);
 
 int LIBUSB_CALL libusb_set_configuration(libusb_device_handle *dev_handle,
 	int configuration);
