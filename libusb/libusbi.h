@@ -139,6 +139,19 @@ static inline void list_del(struct list_head *entry)
 	entry->next = entry->prev = NULL;
 }
 
+static inline void list_cut(struct list_head *list, struct list_head *head)
+{
+	if (list_empty(head))
+		return;
+
+	list->next = head->next;
+	list->next->prev = list;
+	list->prev = head->prev;
+	list->prev->next = list;
+
+	list_init(head);
+}
+
 static inline void *usbi_reallocf(void *ptr, size_t size)
 {
 	void *ret = realloc(ptr, size);
@@ -540,17 +553,12 @@ int usbi_clear_event(struct libusb_context *ctx);
 #include "os/poll_windows.h"
 #endif
 
-#if (defined(OS_WINDOWS) || defined(OS_WINCE)) && !defined(__GNUC__)
-#define snprintf _snprintf
-#define vsnprintf _vsnprintf
-int usbi_gettimeofday(struct timeval *tp, void *tzp);
-#define LIBUSB_GETTIMEOFDAY_WIN32
-#define HAVE_USBI_GETTIMEOFDAY
-#else
-#ifdef HAVE_GETTIMEOFDAY
-#define usbi_gettimeofday(tv, tz) gettimeofday((tv), (tz))
-#define HAVE_USBI_GETTIMEOFDAY
-#endif
+#if defined(_MSC_VER) && (_MSC_VER < 1900)
+#define snprintf usbi_snprintf
+#define vsnprintf usbi_vsnprintf
+int usbi_snprintf(char *dst, size_t size, const char *format, ...);
+int usbi_vsnprintf(char *dst, size_t size, const char *format, va_list ap);
+#define LIBUSB_PRINTF_WIN32
 #endif
 
 struct usbi_pollfd {
@@ -684,6 +692,33 @@ struct usbi_os_backend {
 	 * Optional, should be implemented by backends with hotplug support.
 	 */
 	void (*hotplug_poll)(void);
+
+	/* Wrap an open file descriptor for I/O and other USB operations.
+	 * The device handle is preallocated for you.
+	 *
+	 * Your backend should allocate any internal resources required for I/O
+	 * and other operations so that those operations can happen (hopefully)
+	 * without hiccup. This is also a good place to inform libusb that it
+	 * should monitor the file descriptor - see the usbi_add_pollfd() function.
+	 *
+	 * Your backend should also initialize the device structure
+	 * (dev_handle->dev), which is NULL at the beginning of the call.
+	 *
+	 * This function should not generate any bus I/O and should not block.
+	 *
+	 * This function is called when the user attempts to wrap an existing file
+	 * descriptor for a device.
+	 *
+	 * Return:
+	 * - 0 on success
+	 * - LIBUSB_ERROR_ACCESS if the user has insufficient permissions
+	 * - another LIBUSB_ERROR code on other failure
+	 *
+	 * Do not worry about freeing the handle on failed open, the upper layers
+	 * do this for you.
+	 */
+	int (*wrap_fd)(struct libusb_context *ctx,
+		struct libusb_device_handle *dev_handle, int fd);
 
 	/* Open a device for I/O and other USB operations. The device handle
 	 * is preallocated for you, you can retrieve the device in question
